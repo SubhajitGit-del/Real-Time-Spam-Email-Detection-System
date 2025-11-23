@@ -1,0 +1,228 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>MailGuard – Gmail Spam Scanner</title>
+    <style>
+      html,
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 10px;
+        width: 600px;   /* wider popup */
+        height: 600px;  /* taller popup */
+        overflow-y: auto;
+        background-color: #f9f9f9;
+      }
+
+      h1 {
+        font-size: 20px;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+
+      /* API key setup */
+      #apiKeySection {
+        margin-bottom: 10px;
+      }
+
+      #apiKey {
+        width: 75%;
+        padding: 6px;
+        margin-bottom: 5px;
+      }
+
+      #toggleKey {
+        padding: 6px 8px;
+        margin-left: 4px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        cursor: pointer;
+        background: #fff;
+      }
+
+      #saveKey {
+        padding: 6px 12px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-left: 4px;
+      }
+
+      #saveKey:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      #saveKey:hover:not(:disabled) {
+        background-color: #45a049;
+      }
+
+      #saveStatus {
+        margin-left: 6px;
+        font-size: 12px;
+        color: green;
+      }
+
+      /* Fetch button */
+      #fetchBtn {
+        display: block;
+        width: 100%;
+        padding: 10px;
+        background-color: #4285f4;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 15px 0;
+      }
+
+      #fetchBtn:hover {
+        background-color: #357ae8;
+      }
+
+      /* Email list */
+      #emailList {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        max-height: 460px;
+        overflow-y: auto;
+      }
+
+      .email-item {
+        background: #fff;
+        border: 1px solid #ddd;
+        padding: 12px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+      }
+
+      .email-subject {
+        font-weight: bold;
+        font-size: 16px;
+        margin-bottom: 4px;
+      }
+
+      .email-from {
+        font-size: 13px;
+        color: #555;
+        margin-bottom: 6px;
+      }
+
+      .email-snippet {
+        font-size: 14px;
+        color: #333;
+        margin-bottom: 6px;
+      }
+
+      .ocr {
+        background: #f3f9ff;
+        border-left: 4px solid #4285f4;
+        padding: 8px;
+        margin-top: 5px;
+        font-size: 13px;
+        white-space: pre-wrap;
+      }
+
+      .error {
+        color: red;
+        font-weight: bold;
+      }
+
+      /* MailGuard verdict badge + score */
+      .verdict-row {
+        margin-top: 6px;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .verdict-badge {
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 12px;
+        color: #fff;
+        display: inline-block;
+        text-transform: capitalize;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+      }
+
+      /* Colors for different verdicts */
+      .verdict-badge.spam {
+        background: #e55353;
+      } /* red */
+
+      .verdict-badge.benign {
+        background: #4caf50;
+      } /* green */
+
+      .verdict-badge.suspicious {
+        background: #f0a500;
+      } /* orange */
+
+      .verdict-badge.unknown {
+        background: #9aa0a6;
+      } /* gray */
+
+      .verdict-score {
+        font-size: 12px;
+        color: #444;
+        font-weight: 600;
+        margin-left: 2px;
+      }
+
+      .verdict-reason {
+        font-size: 12px;
+        color: #666;
+        margin-left: 6px;
+      }
+
+      /* Border accent based on verdict */
+      .email-item.spam {
+        border-left: 4px solid #e55353;
+      }
+
+      .email-item.benign {
+        border-left: 4px solid #4caf50;
+      }
+
+      .email-item.suspicious {
+        border-left: 4px solid #f0a500;
+      }
+
+      .email-item.unknown {
+        border-left: 4px solid #9aa0a6;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📬 MailGuard – Gmail + OCR</h1>
+
+    <div id="apiKeySection" style="display: none;">
+      <input
+        id="apiKey"
+        type="password"
+        placeholder="Vision API key (optional for OCR)"
+      />
+      <button id="toggleKey" title="Show/Hide">👁️</button>
+      <button id="saveKey" disabled>Save</button>
+      <span id="saveStatus"></span>
+    </div>
+
+    <button id="fetchBtn">Fetch Emails + Analyze</button>
+
+    <ul id="emailList">
+      <li>Loading…</li>
+    </ul>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

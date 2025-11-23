@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "MailGuard – Gmail Spam Scanner",
+  "version": "1.0.0",
+  "description": "Chrome extension that reads Gmail messages, sends them to my local ML backend, and shows spam detection results in real time.",
+  "permissions": [
+    "identity",
+    "storage",
+    "notifications",
+    "alarms",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://vision.googleapis.com/*",
+    "https://mail.google.com/*",
+    "http://127.0.0.1:8000/*"
+  ],
+  "oauth2": {
+    "client_id": "169665316526-8vou3v2983cemq2u9i7lj56rkh50d4u2.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.readonly"
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}
+
+
+
+
