@@ -1,96 +1,92 @@
-"""
-MailGuard ML Engine
--------------------
-Responsible for loading the trained model (TF-IDF + scaler + classifier)
-and exposing a single, simple interface:
-
-    predict(text) -> { verdict, score, reasons }
-
-The Chrome extension and Django view only interact with this module.
-"""
 
 import os
 import threading
 import traceback
 import joblib
 
-# Debug info on import
-print(f"[ml_engine] Loaded from: {__file__}")
-print(f"[ml_engine] Model path env = {os.environ.get('MAILGUARD_MODEL_PATH')}")
+# ---------------------------------------------------
+# Debug info (runs once when file is imported)
+# ---------------------------------------------------
+print(f"[ml_engine] Imported from: {__file__}")
+print(f"[ml_engine] MODEL PATH = {os.environ.get('MAILGUARD_MODEL_PATH')}")
 
-# ---------------------------------------------------------------------
-# Global model pointer + thread-safe lock
-# ---------------------------------------------------------------------
+# ---------------------------------------------------
+# Global variables
+# ---------------------------------------------------
 MODEL_PATH = os.environ.get("MAILGUARD_MODEL_PATH")
-_model = None
-_lock = threading.Lock()
+_model = None                  # Cached model
+_lock = threading.Lock()       # Thread safety
 
 
-# ---------------------------------------------------------------------
-# File loader with fallbacks
-# ---------------------------------------------------------------------
+# ---------------------------------------------------
+# Load model from disk
+# ---------------------------------------------------
 def _load_model_from_file(path: str):
-    """Try loading the model using joblib, then optionally Keras, then PyTorch."""
+    """
+    Tries different loaders based on file type:
+    - joblib (sklearn)
+    - keras (.h5)
+    - pytorch (.pt)
+    """
+
     if not os.path.exists(path):
-        print(f"[ml_engine] Path does not exist: {path}")
+        print(f"[ml_engine] Model file not found: {path}")
         return None
 
-    # Try joblib first (main format for sklearn pipelines)
+    # Try joblib (sklearn pipeline)
     try:
-        print(f"[ml_engine] Attempting joblib.load({path})")
+        print(f"[ml_engine] Loading model using joblib: {path}")
         model = joblib.load(path)
-        print(f"[ml_engine] joblib load OK: {type(model)}")
+        print(f"[ml_engine] Model loaded successfully: {type(model)}")
         return model
-    except Exception as exc:
-        print(f"[ml_engine] joblib failed: {exc}")
+    except Exception as e:
+        print("[ml_engine] joblib load failed")
         traceback.print_exc()
 
-    # Optional: TensorFlow/Keras format
+    # Try Keras model
     if path.endswith((".h5", ".keras")):
         try:
             from tensorflow.keras.models import load_model
             model = load_model(path)
-            print("[ml_engine] Loaded Keras model")
+            print("[ml_engine] Keras model loaded")
             return model
-        except Exception as exc:
-            print(f"[ml_engine] Keras load failed: {exc}")
+        except Exception:
+            traceback.print_exc()
 
-    # Optional: PyTorch checkpoint
+    # Try PyTorch model
     if path.endswith((".pt", ".pth")):
         try:
-            print("[ml_engine] Treating file as PyTorch state dict reference only.")
-            return {"pytorch_state_dict_path": path}
-        except Exception as exc:
-            print(f"[ml_engine] PyTorch load failed: {exc}")
+            import torch
+            print("[ml_engine] PyTorch model detected (state dict only)")
+            return {"pytorch_model_path": path}
+        except Exception:
+            traceback.print_exc()
 
-    print("[ml_engine] No loader succeeded.")
+    print("[ml_engine] No compatible loader found")
     return None
 
 
-# ---------------------------------------------------------------------
-# One-time model loader (thread-safe)
-# ---------------------------------------------------------------------
+# Singleton model loader (thread safe)
 def load_model():
+    """
+    Loads model once and reuses it for all requests.
+    Prevents multiple loads using thread lock.
+    """
+
     global _model
 
     with _lock:
-        print(f"[ml_engine] load_model() called. MODEL_PATH = {MODEL_PATH}")
-
         if _model is not None:
-            print("[ml_engine] Using cached model instance.")
+            print("[ml_engine] Using cached model")
             return _model
 
         if not MODEL_PATH:
-            print("[ml_engine] Warning: MAILGUARD_MODEL_PATH not configured.")
-            return None
-
-        if not os.path.exists(MODEL_PATH):
-            print(f"[ml_engine] File not found: {MODEL_PATH}")
+            print("[ml_engine] MODEL PATH not set")
             return None
 
         try:
             _model = _load_model_from_file(MODEL_PATH)
-            print(f"[ml_engine] Model loaded successfully: {type(_model)}")
+            print(f"[ml_engine] Model ready: {type(_model)}")
         except Exception:
             traceback.print_exc()
             _model = None
@@ -98,124 +94,105 @@ def load_model():
         return _model
 
 
-# ---------------------------------------------------------------------
-# Public prediction API
-# ---------------------------------------------------------------------
-def predict(text):
+# ---------------------------------------------------
+# Prediction API
+# ---------------------------------------------------
+def predict(text: str):
     """
-    Accepts a raw email body string and returns a dict:
+    Main prediction function.
 
+    Input:
+        text -> email body (string)
+
+    Output:
         {
-           "verdict": "spam" | "benign" | "suspicious",
-           "score": float,
-           "reasons": [...],
-           "model": "sklearn" | "keras" | "stub"
+          verdict: spam / benign 
+          score: probability
+          reasons: []
+          model: sklearn / keras / stub
         }
-
-    If no model is available, we fall back to a simple rule-based heuristic.
     """
-    print(f"[ml_engine] predict() invoked. Current model = {type(_model)}")
+
+    print("[ml_engine] predict() called")
 
     model = _model or load_model()
-    print(f"[ml_engine] After ensuring load: {type(model)}")
 
-    # -----------------------------------------------------------------
-    # Fallback heuristic (if model missing / load failed)
-    # -----------------------------------------------------------------
+    # ------------------------------------------------
+    # Fallback logic (if model not loaded)
+    # ------------------------------------------------
     if model is None:
         body = (text or "").lower()
-        reasons = []
         score = 0.0
+        reasons = []
 
-        # Very rough heuristic using spam keywords
-        if "click here" in body or "verify your account" in body or "password" in body:
-            reasons.append("suspicious_phrases")
+        if "click here" in body or "verify your account" in body:
             score += 0.5
+            reasons.append("suspicious_phrases")
 
-        # Unsecured HTTP links
         if "http://" in body and "https://" not in body:
-            reasons.append("insecure_http_link")
             score += 0.3
+            reasons.append("insecure_link")
 
-        verdict = "benign"
-        if score > 0.6:
+        if score > 0.5:
             verdict = "spam"
-        elif score > 0.25:
-            verdict = "suspicious"
+        else:
+            verdict = "benign"
 
-        print(f"[ml_engine] Using fallback rule: verdict={verdict}, score={score}")
         return {
             "verdict": verdict,
             "score": round(score, 3),
             "reasons": reasons,
-            "model": "stub",
+            "model": "rule_based"
         }
 
-    # -----------------------------------------------------------------
-    # Sklearn / Pipeline case
-    # -----------------------------------------------------------------
+    # ------------------------------------------------
+    # ML prediction
+    # ------------------------------------------------
     try:
+
+        # Case 1: Sklearn pipeline
         if hasattr(model, "predict_proba"):
             X = [text]
             probs = model.predict_proba(X)
-            score = float(probs[0][-1])  # spam probability
+            score = float(probs[0][-1])
 
-            # Try to get predicted label
-            try:
-                label = model.predict(X)[0]
-            except Exception:
-                label = None
+            label = model.predict(X)[0]
 
-            # Normalise label types
-            if isinstance(label, (int, float)) or str(label).isdigit():
-                label = int(label)
-                verdict = "spam" if label == 1 else "benign"
-            else:
-                verdict = str(label).lower()
-                if verdict not in {"spam", "benign", "suspicious"}:
-                    verdict = "spam" if score > 0.5 else "benign"
+            verdict = "spam" if int(label) == 1 else "benign"
 
-            print(f"[ml_engine] sklearn predict_proba → verdict={verdict}, score={score}")
             return {
                 "verdict": verdict,
                 "score": round(score, 3),
                 "reasons": [],
-                "model": "sklearn",
+                "model": "sklearn"
             }
 
-        # -----------------------------------------------------------------
-        # Keras-like model
-        # -----------------------------------------------------------------
+        # Case 2: Keras model
         if hasattr(model, "predict"):
             X = [text]
-            score = float(model.predict(X)[0].squeeze())
+            score = float(model.predict(X)[0])
             verdict = "spam" if score > 0.5 else "benign"
 
-            print(f"[ml_engine] Keras predict → verdict={verdict}, score={score}")
             return {
                 "verdict": verdict,
                 "score": round(score, 3),
                 "reasons": [],
-                "model": "keras",
+                "model": "keras"
             }
 
-        # -----------------------------------------------------------------
-        # Unknown model interface
-        # -----------------------------------------------------------------
-        print("[ml_engine] Warning: model loaded but unsupported predict interface.")
+        # Unsupported model
         return {
             "verdict": "unknown",
             "score": 0.0,
-            "reasons": ["model_loaded_but_unhandled"],
-            "model": "unknown",
+            "reasons": ["unsupported_model"],
+            "model": "unknown"
         }
 
-    except Exception as exc:
-        print(f"[ml_engine] Prediction error: {exc}")
+    except Exception as e:
         traceback.print_exc()
         return {
             "verdict": "benign",
             "score": 0.0,
-            "reasons": [f"model_error:{str(exc)[:200]}"],
-            "model": "error_fallback",
+            "reasons": ["model_runtime_error"],
+            "model": "error_fallback"
         }
