@@ -1,64 +1,42 @@
-
 # api/decision.py
-"""
-Decision logic for the ML-only mode.
-
-Takes the raw ML probability score (0–1) and maps it into a final verdict:
-    - spam
-    - suspicious
-    - benign
-
-Also attaches simple confidence annotations so the UI/backend
-understands *how* confident the model was.
-"""
-
-from typing import Any, Dict
+from typing import Dict, Any
 
 
-def _clamp(value: float, low: float = 0.0, high: 1.0) -> float:
-    """Ensure a number stays within the range [low, high]."""
+def _clamp(value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
+    """
+    Keeps a number safely inside a given range.
+    Default range = [0, 1]
+    """
     try:
-        v = float(value)
+        value = float(value)
     except Exception:
-        return low
-    return max(low, min(high, v))
+        return min_val
+
+    return max(min_val, min(value, max_val))
 
 
 def decide_ml_only(ml_score: float) -> Dict[str, Any]:
     """
-    Convert a raw ML probability into:
-        - final verdict: spam / suspicious / benign
-        - rounded score
-        - confidence reasons
-        - a components dict for debugging/tracing
+    Converts ML probability score into final verdict.
 
-    Inputs:
-        ml_score: probability that the email is spam (0.0–1.0)
+    Input:
+        ml_score -> probability from ML model (0 to 1)
 
-    Returns:
+    Output:
         {
-          "verdict": "...",
-          "score": float,
-          "reasons": [...],
-          "components": {"ml_score": ...}
+            verdict   : spam / benign
+            score     : rounded ML score
+            reasons   : confidence indicators
+            components: raw score
         }
     """
+
     score = _clamp(ml_score)
     reasons = []
 
-    # Add simple confidence tags based on score ranges
-    if score >= 0.98:
-        reasons.append("ml_high_confidence")
-    elif score >= 0.7:
-        reasons.append("ml_strong")
-    elif score >= 0.45:
-        reasons.append("ml_weak")
-
-    # Final label thresholds
-    if score >= 0.7:
+    # Decision thresholds
+    if score >= 0.5:
         verdict = "spam"
-    elif score >= 0.4:
-        verdict = "suspicious"
     else:
         verdict = "benign"
 
@@ -66,5 +44,9 @@ def decide_ml_only(ml_score: float) -> Dict[str, Any]:
         "verdict": verdict,
         "score": round(score, 3),
         "reasons": reasons,
-        "components": {"ml_score": round(score, 3)},
+        "components": {
+            "ml_score": round(score, 3)
+        },
     }
+
+
