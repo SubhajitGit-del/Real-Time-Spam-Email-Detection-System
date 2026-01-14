@@ -48,24 +48,25 @@ Predictions from base models are fused using **Logistic Regression as a meta-cla
 
 
 ## 📷 System Architecture
-##![System Architecture](images/sys_arc.png)
+<!-- ![System Architecture](images/sys_arc.png) -->
 
 ## 🧠 ML Model Workflow
-![ML Pipeline](images/ml_pic.png)
+<!-- ![ML Pipeline](images/ml_pic.png) --> 
 
 ## 📊 Performance Comparison
-![Model Comparison](images/comparison.png)
-![Stack vs Base](images/stack_vs_base.png)
+<!-- ![Model Comparison](images/comparison.png) --> 
+<!-- ![Stack vs Base](images/stack_vs_base.png) --> 
 
 ## ⚡ Latency Analysis
-![Latency](images/latency.png)
+<!-- ![Latency](images/latency.png) -->
 
-Note: Figures and screenshots are taken from our submitted research paper (currently under review) and developed by the authors.
+// Note: Figures and screenshots are taken from our submitted research paper (currently under review) and developed by the authors.
 
 
 ## 📨 Real-Time Gmail Detection
-![Injected Result](images/injected_result.png)
+<!--![Injected Result](images/injected_result.png)-->
+
 
 ## 🪟 Popup Interface
-![Popup UI](images/popup_pic.png)
+<!--![Popup UI](images/popup_pic.png)-->
 
