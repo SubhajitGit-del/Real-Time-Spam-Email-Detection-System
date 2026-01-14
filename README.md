@@ -48,7 +48,7 @@ Predictions from base models are fused using **Logistic Regression as a meta-cla
 
 
 ## 📷 System Architecture
-![System Architecture](images/sys_arc.png)
+##![System Architecture](images/sys_arc.png)
 
 ## 🧠 ML Model Workflow
 ![ML Pipeline](images/ml_pic.png)
